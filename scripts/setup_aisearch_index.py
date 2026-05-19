@@ -6,13 +6,15 @@ chunks the content, generates embeddings via Azure OpenAI (text-embedding-3-smal
 and uploads the chunks to the AI Search index.
 
 Usage:
-    pip install azure-search-documents azure-identity openai python-docx
+    pip install -r scripts/requirements.txt
     python scripts/setup_aisearch_index.py
 """
 
 import os
 import sys
 import glob
+from pathlib import Path
+from dotenv import load_dotenv
 from docx import Document
 from azure.identity import DefaultAzureCredential
 from azure.search.documents import SearchClient
@@ -26,19 +28,21 @@ from azure.search.documents.indexes.models import (
     VectorSearch,
     HnswAlgorithmConfiguration,
     VectorSearchProfile,
-    SearchFieldDataType,
 )
 from openai import AzureOpenAI
 
+# Load .env from project root
+env_path = Path(__file__).resolve().parent.parent / ".env"
+load_dotenv(dotenv_path=env_path)
 
-# --- Configuration ---
+# --- Configuration from .env ---
 
-AI_SEARCH_ENDPOINT = os.environ.get("AI_SEARCH_ENDPOINT")  # e.g. https://srch-<prefix>.search.windows.net
-AI_FOUNDRY_ENDPOINT = os.environ.get("AI_FOUNDRY_ENDPOINT")  # e.g. https://ais-<prefix>.cognitiveservices.azure.com
+AI_SEARCH_ENDPOINT = os.environ.get("AI_SEARCH_ENDPOINT")
+AI_FOUNDRY_ENDPOINT = os.environ.get("AI_FOUNDRY_ENDPOINT")
 INDEX_NAME = os.environ.get("AI_SEARCH_INDEX_NAME", "documents-index")
-EMBEDDING_MODEL = "text-embedding-3-small"
-CHUNK_SIZE = 1000  # characters per chunk
-CHUNK_OVERLAP = 200  # overlap between chunks
+EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "text-embedding-3-small")
+CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", "1000"))
+CHUNK_OVERLAP = int(os.environ.get("CHUNK_OVERLAP", "200"))
 DATA_FOLDER = os.path.join(os.path.dirname(__file__), "..", "data")
 
 
