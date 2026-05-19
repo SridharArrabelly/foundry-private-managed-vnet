@@ -1,0 +1,27 @@
+@description('Azure region for deployment')
+param location string
+
+@description('Resource name prefix')
+param prefix string
+
+var searchName = 'srch-${prefix}'
+
+resource aiSearch 'Microsoft.Search/searchServices@2025-05-01' = {
+  name: searchName
+  location: location
+  sku: {
+    name: 'basic'
+  }
+  identity: {
+    type: 'SystemAssigned'
+  }
+  properties: {
+    hostingMode: 'Default'
+    publicNetworkAccess: 'disabled'
+    partitionCount: 1
+    replicaCount: 1
+  }
+}
+
+output searchId string = aiSearch.id
+output searchName string = aiSearch.name
