@@ -19,13 +19,26 @@ resource aiFoundry 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
   properties: {
     customSubDomainName: accountName
     publicNetworkAccess: 'Disabled'
+    allowProjectManagement: true
     networkAcls: {
       defaultAction: 'Deny'
     }
   }
 }
 
-// --- Model Deployments ---
+// --- Foundry Project ---
+
+resource foundryProject 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = {
+  parent: aiFoundry
+  name: '${prefix}-project'
+  location: location
+  identity: {
+    type: 'SystemAssigned'
+  }
+  properties: {}
+}
+
+// --- Model Deployments (on the project) ---
 
 resource embeddingDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
   parent: aiFoundry

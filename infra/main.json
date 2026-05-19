@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.43.8.12551",
-      "templateHash": "5859420973119291340"
+      "templateHash": "9569425813444627014"
     }
   },
   "parameters": {
@@ -133,7 +133,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.43.8.12551",
-              "templateHash": "2970242920134149968"
+              "templateHash": "18105676819509723770"
             }
           },
           "parameters": {
@@ -169,10 +169,24 @@
               "properties": {
                 "customSubDomainName": "[variables('accountName')]",
                 "publicNetworkAccess": "Disabled",
+                "allowProjectManagement": true,
                 "networkAcls": {
                   "defaultAction": "Deny"
                 }
               }
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/projects",
+              "apiVersion": "2025-06-01",
+              "name": "[format('{0}/{1}', variables('accountName'), format('{0}-project', parameters('prefix')))]",
+              "location": "[parameters('location')]",
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {},
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', variables('accountName'))]"
+              ]
             },
             {
               "type": "Microsoft.CognitiveServices/accounts/deployments",
