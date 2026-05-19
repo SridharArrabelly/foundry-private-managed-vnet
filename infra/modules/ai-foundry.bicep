@@ -25,6 +25,41 @@ resource aiFoundry 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
   }
 }
 
+// --- Model Deployments ---
+
+resource embeddingDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
+  parent: aiFoundry
+  name: 'text-embedding-3-small'
+  sku: {
+    name: 'GlobalStandard'
+    capacity: 120
+  }
+  properties: {
+    model: {
+      format: 'OpenAI'
+      name: 'text-embedding-3-small'
+      version: '1'
+    }
+  }
+}
+
+resource gpt4MiniDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
+  parent: aiFoundry
+  name: 'gpt-4.1-mini'
+  sku: {
+    name: 'GlobalStandard'
+    capacity: 30
+  }
+  properties: {
+    model: {
+      format: 'OpenAI'
+      name: 'gpt-4.1-mini'
+      version: '2025-04-14'
+    }
+  }
+  dependsOn: [embeddingDeployment]
+}
+
 output aiFoundryId string = aiFoundry.id
 output aiFoundryName string = aiFoundry.name
 output aiFoundryPrincipalId string = aiFoundry.identity.principalId

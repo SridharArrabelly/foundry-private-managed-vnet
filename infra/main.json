@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.43.8.12551",
-      "templateHash": "11436987897362172822"
+      "templateHash": "5859420973119291340"
     }
   },
   "parameters": {
@@ -133,7 +133,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.43.8.12551",
-              "templateHash": "7188752715993031440"
+              "templateHash": "2970242920134149968"
             }
           },
           "parameters": {
@@ -173,6 +173,45 @@
                   "defaultAction": "Deny"
                 }
               }
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/deployments",
+              "apiVersion": "2025-06-01",
+              "name": "[format('{0}/{1}', variables('accountName'), 'text-embedding-3-small')]",
+              "sku": {
+                "name": "GlobalStandard",
+                "capacity": 120
+              },
+              "properties": {
+                "model": {
+                  "format": "OpenAI",
+                  "name": "text-embedding-3-small",
+                  "version": "1"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', variables('accountName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/deployments",
+              "apiVersion": "2025-06-01",
+              "name": "[format('{0}/{1}', variables('accountName'), 'gpt-4.1-mini')]",
+              "sku": {
+                "name": "GlobalStandard",
+                "capacity": 30
+              },
+              "properties": {
+                "model": {
+                  "format": "OpenAI",
+                  "name": "gpt-4.1-mini",
+                  "version": "2025-04-14"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', variables('accountName'))]",
+                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', variables('accountName'), 'text-embedding-3-small')]"
+              ]
             }
           ],
           "outputs": {
