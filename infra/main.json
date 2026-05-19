@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.43.8.12551",
-      "templateHash": "17697525768230360808"
+      "templateHash": "9868646723065908696"
     }
   },
   "parameters": {
@@ -716,7 +716,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.43.8.12551",
-              "templateHash": "16576032886278498488"
+              "templateHash": "7557709812033240"
             }
           },
           "parameters": {
@@ -776,9 +776,10 @@
               "name": "[format('bas-{0}', parameters('prefix'))]",
               "location": "[parameters('location')]",
               "sku": {
-                "name": "Basic"
+                "name": "Standard"
               },
               "properties": {
+                "enableTunneling": true,
                 "ipConfigurations": [
                   {
                     "name": "bastion-ipconfig",

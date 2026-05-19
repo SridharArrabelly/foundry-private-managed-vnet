@@ -36,9 +36,10 @@ resource bastion 'Microsoft.Network/bastionHosts@2024-07-01' = {
   name: 'bas-${prefix}'
   location: location
   sku: {
-    name: 'Basic'
+    name: 'Standard'
   }
   properties: {
+    enableTunneling: true
     ipConfigurations: [
       {
         name: 'bastion-ipconfig'
