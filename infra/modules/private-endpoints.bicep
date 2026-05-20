@@ -80,6 +80,11 @@ resource peFoundry 'Microsoft.Network/privateEndpoints@2024-07-01' = {
 resource peSearch 'Microsoft.Network/privateEndpoints@2024-07-01' = {
   name: 'pep-${prefix}-search'
   location: location
+  // Serialize PE creation to avoid IfMatchPreconditionFailed: both PEs target
+  // the same subnet and ARM PATCHes the subnet on each PE create.
+  dependsOn: [
+    peFoundry
+  ]
   properties: {
     subnet: {
       id: peSubnetId
