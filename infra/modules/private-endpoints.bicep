@@ -23,6 +23,16 @@ resource dnsZoneFoundry 'Microsoft.Network/privateDnsZones@2024-06-01' = {
   location: 'global'
 }
 
+resource dnsZoneOpenAI 'Microsoft.Network/privateDnsZones@2024-06-01' = {
+  name: 'privatelink.openai.azure.com'
+  location: 'global'
+}
+
+resource dnsZoneAIServices 'Microsoft.Network/privateDnsZones@2024-06-01' = {
+  name: 'privatelink.services.ai.azure.com'
+  location: 'global'
+}
+
 resource dnsZoneSearch 'Microsoft.Network/privateDnsZones@2024-06-01' = {
   name: 'privatelink.search.windows.net'
   location: 'global'
@@ -33,6 +43,30 @@ resource dnsZoneSearch 'Microsoft.Network/privateDnsZones@2024-06-01' = {
 resource vnetLinkFoundry 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = {
   parent: dnsZoneFoundry
   name: 'link-${prefix}-foundry'
+  location: 'global'
+  properties: {
+    virtualNetwork: {
+      id: vnetId
+    }
+    registrationEnabled: false
+  }
+}
+
+resource vnetLinkOpenAI 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = {
+  parent: dnsZoneOpenAI
+  name: 'link-${prefix}-openai'
+  location: 'global'
+  properties: {
+    virtualNetwork: {
+      id: vnetId
+    }
+    registrationEnabled: false
+  }
+}
+
+resource vnetLinkAIServices 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = {
+  parent: dnsZoneAIServices
+  name: 'link-${prefix}-aiservices'
   location: 'global'
   properties: {
     virtualNetwork: {
@@ -114,6 +148,18 @@ resource dnsGroupFoundry 'Microsoft.Network/privateEndpoints/privateDnsZoneGroup
         name: 'config-foundry'
         properties: {
           privateDnsZoneId: dnsZoneFoundry.id
+        }
+      }
+      {
+        name: 'config-openai'
+        properties: {
+          privateDnsZoneId: dnsZoneOpenAI.id
+        }
+      }
+      {
+        name: 'config-aiservices'
+        properties: {
+          privateDnsZoneId: dnsZoneAIServices.id
         }
       }
     ]
