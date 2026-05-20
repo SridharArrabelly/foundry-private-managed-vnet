@@ -54,6 +54,7 @@ module roleAssignments 'modules/role-assignments.bicep' = {
   name: 'deploy-role-assignments'
   params: {
     aiFoundryPrincipalId: aiFoundry.outputs.aiFoundryPrincipalId
+    aiFoundryProjectPrincipalId: aiFoundry.outputs.aiFoundryProjectPrincipalId
     aiFoundryId: aiFoundry.outputs.aiFoundryId
     searchId: aiSearch.outputs.searchId
     jumpboxPrincipalId: jumpbox.outputs.vmPrincipalId

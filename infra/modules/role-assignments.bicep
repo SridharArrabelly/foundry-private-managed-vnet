@@ -1,6 +1,9 @@
 @description('Principal ID of the AI Foundry system-assigned managed identity')
 param aiFoundryPrincipalId string
 
+@description('Principal ID of the AI Foundry project system-assigned managed identity')
+param aiFoundryProjectPrincipalId string
+
 @description('Resource ID of the AI Search service')
 param searchId string
 
@@ -84,6 +87,37 @@ resource cognitiveOpenAIUserVm 'Microsoft.Authorization/roleAssignments@2022-04-
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', cognitiveServicesOpenAIUserRoleId)
     principalId: jumpboxPrincipalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// --- AI Foundry PROJECT MI → Search ---
+// Connections shown in the Foundry portal authenticate with the project's
+// managed identity (not the parent account's). Agents calling the AI Search
+// tool need the project MI to have data-plane access to the index.
+
+resource searchIndexDataContributorProject 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(searchId, aiFoundryProjectPrincipalId, searchIndexDataContributorRoleId)
+  scope: searchResource
+  dependsOn: [
+    searchServiceContributorVm
+  ]
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', searchIndexDataContributorRoleId)
+    principalId: aiFoundryProjectPrincipalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource searchServiceContributorProject 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(searchId, aiFoundryProjectPrincipalId, searchServiceContributorRoleId)
+  scope: searchResource
+  dependsOn: [
+    searchIndexDataContributorProject
+  ]
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', searchServiceContributorRoleId)
+    principalId: aiFoundryProjectPrincipalId
     principalType: 'ServicePrincipal'
   }
 }
