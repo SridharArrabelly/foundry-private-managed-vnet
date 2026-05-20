@@ -69,6 +69,14 @@ if (-not $pythonExe) {
 }
 Write-Step "Python: $pythonExe"
 
+# Force PYTHONHOME so Python doesn't try to derive sys.prefix from cwd
+# (which causes "ModuleNotFoundError: No module named 'encodings'" when run
+# from a directory that doesn't contain the Python stdlib).
+$pythonHome = Split-Path -Parent $pythonExe
+$env:PYTHONHOME = $pythonHome
+$env:PYTHONPATH = ''
+Write-Step "PYTHONHOME=$pythonHome"
+
 # 2) Download repo archive.
 $workDir = "$env:TEMP\foundry-network-test"
 if (Test-Path $workDir) { Remove-Item -Recurse -Force $workDir }
