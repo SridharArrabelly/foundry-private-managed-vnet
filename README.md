@@ -18,7 +18,9 @@ End-to-end private networking test for **Azure AI Foundry** and **Azure AI Searc
 │                                                                  │
 │  Private DNS Zones (linked to VNet):                            │
 │  • privatelink.cognitiveservices.azure.com → AI Foundry PE IP   │
-│  • privatelink.search.windows.net → AI Search PE IP             │
+│  • privatelink.openai.azure.com            → AI Foundry PE IP   │
+│  • privatelink.services.ai.azure.com       → AI Foundry PE IP   │
+│  • privatelink.search.windows.net          → AI Search PE IP    │
 └─────────────────────────────────────────────────────────────────┘
 
                     RBAC (System MIs)
@@ -62,7 +64,9 @@ End-to-end private networking test for **Azure AI Foundry** and **Azure AI Searc
 | RBAC: Jumpbox MI → Foundry | Cognitive Services OpenAI User | Lets the indexer call the embedding model |
 | Private Endpoint (Foundry) | `Microsoft.Network/privateEndpoints` | Private connectivity to AI Foundry |
 | Private Endpoint (Search) | `Microsoft.Network/privateEndpoints` | Private connectivity to AI Search |
-| Private DNS Zone (Foundry) | `privatelink.cognitiveservices.azure.com` | DNS resolution for Foundry PE |
+| Private DNS Zone (Foundry — account) | `privatelink.cognitiveservices.azure.com` | DNS for Foundry account control/data plane |
+| Private DNS Zone (Foundry — OpenAI) | `privatelink.openai.azure.com` | DNS for the OpenAI/inference data plane (required by Foundry Agents) |
+| Private DNS Zone (Foundry — AI Services) | `privatelink.services.ai.azure.com` | DNS for the AI Services data plane (required by Foundry Agents portal) |
 | Private DNS Zone (Search) | `privatelink.search.windows.net` | DNS resolution for Search PE |
 | Windows 11 VM | `Microsoft.Compute/virtualMachines` (Standard_B2ms, System MI) | Jumpbox for testing private access and running the indexer |
 | Azure Bastion | `Microsoft.Network/bastionHosts` (Standard, tunneling enabled) | Secure RDP / native client tunneling to VM without public IP |
@@ -212,6 +216,7 @@ foundry-network-test/
 | Python installer returns exit code `1603` | Python is already installed on the jumpbox from a prior run. The bootstrap checks `C:\Python312\python.exe` first to skip re-install — pull latest and re-run the hook. |
 | `ModuleNotFoundError: No module named 'encodings'` on the jumpbox | Python's `sys.prefix` was derived from cwd instead of the install dir. The bootstrap sets `PYTHONHOME` to pin it. Pull latest. |
 | `UnicodeEncodeError: 'charmap' codec can't encode` on the jumpbox | Windows console defaults to cp1252. The bootstrap sets `PYTHONIOENCODING=utf-8` and `PYTHONUTF8=1`. Pull latest. |
+| Foundry portal (Agents page) on the jumpbox shows **"Public access is disabled. Please configure private endpoint."** | The Foundry Agents experience calls `*.openai.azure.com` and `*.services.ai.azure.com` in addition to `*.cognitiveservices.azure.com`. All three `privatelink.*` zones must be linked to the VNet and attached to the Foundry PE's DNS zone group (the template does this). If you see this on an environment provisioned before this fix, run `azd provision` to add the missing zones. |
 
 ## Cleanup
 
