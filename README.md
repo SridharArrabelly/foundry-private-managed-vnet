@@ -44,7 +44,7 @@ End-to-end private networking test for **Azure AI Foundry** and **Azure AI Searc
 | Bastion Subnet | AzureBastionSubnet (10.0.3.0/26) | Azure Bastion host |
 | AI Foundry | `Microsoft.CognitiveServices/accounts` (kind: AIServices) | AI Services with project management |
 | Foundry Project | `accounts/projects` | Foundry project for model management |
-| text-embedding-3-small | Model deployment (GlobalStandard) | Embedding model for vectorizing documents |
+| text-embedding-3-large | Model deployment (GlobalStandard) | Embedding model for vectorizing documents (3072 dims) |
 | gpt-4.1-mini | Model deployment (GlobalStandard) | Chat/completion model |
 | AI Search | `Microsoft.Search/searchServices` (basic) | Search index for document chunks |
 | RBAC: Search Index Data Contributor | Role assignment | Foundry MI → read/write search index data |
@@ -133,7 +133,8 @@ AI_SEARCH_INDEX_NAME=documents-index
 
 # Azure AI Foundry / OpenAI
 AI_FOUNDRY_ENDPOINT=https://ais-<prefix>.cognitiveservices.azure.com
-EMBEDDING_MODEL=text-embedding-3-small
+EMBEDDING_MODEL=text-embedding-3-large
+EMBEDDING_DIMENSIONS=3072
 
 # Chunking settings
 CHUNK_SIZE=1000

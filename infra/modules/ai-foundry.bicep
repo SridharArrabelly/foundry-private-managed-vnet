@@ -51,7 +51,7 @@ resource foundryProject 'Microsoft.CognitiveServices/accounts/projects@2025-06-0
 
 resource embeddingDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
   parent: aiFoundry
-  name: 'text-embedding-3-small'
+  name: 'text-embedding-3-large'
   sku: {
     name: 'GlobalStandard'
     capacity: 120
@@ -59,7 +59,7 @@ resource embeddingDeployment 'Microsoft.CognitiveServices/accounts/deployments@2
   properties: {
     model: {
       format: 'OpenAI'
-      name: 'text-embedding-3-small'
+      name: 'text-embedding-3-large'
       version: '1'
     }
   }

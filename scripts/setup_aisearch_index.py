@@ -2,7 +2,7 @@
 setup_aisearch_index.py
 
 Creates an AI Search index, reads .docx files from the data/ folder,
-chunks the content, generates embeddings via Azure OpenAI (text-embedding-3-small),
+chunks the content, generates embeddings via Azure OpenAI (text-embedding-3-large),
 and uploads the chunks to the AI Search index.
 
 Usage:
@@ -40,7 +40,8 @@ load_dotenv(dotenv_path=env_path)
 AI_SEARCH_ENDPOINT = os.environ.get("AI_SEARCH_ENDPOINT")
 AI_FOUNDRY_ENDPOINT = os.environ.get("AI_FOUNDRY_ENDPOINT")
 INDEX_NAME = os.environ.get("AI_SEARCH_INDEX_NAME", "documents-index")
-EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "text-embedding-3-small")
+EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "text-embedding-3-large")
+EMBEDDING_DIMENSIONS = int(os.environ.get("EMBEDDING_DIMENSIONS", "3072"))
 CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", "1000"))
 CHUNK_OVERLAP = int(os.environ.get("CHUNK_OVERLAP", "200"))
 DATA_FOLDER = os.path.join(os.path.dirname(__file__), "..", "data")
@@ -84,7 +85,7 @@ def create_index(index_client: SearchIndexClient):
             name="content_vector",
             type=SearchFieldDataType.Collection(SearchFieldDataType.Single),
             searchable=True,
-            vector_search_dimensions=1536,
+            vector_search_dimensions=EMBEDDING_DIMENSIONS,
             vector_search_profile_name="embedding-profile",
         ),
     ]
@@ -104,7 +105,7 @@ def create_index(index_client: SearchIndexClient):
 
 
 def generate_embeddings(openai_client: AzureOpenAI, texts: list[str]) -> list[list[float]]:
-    """Generate embeddings for a list of texts using text-embedding-3-small."""
+    """Generate embeddings for a list of texts using the configured embedding model."""
     response = openai_client.embeddings.create(input=texts, model=EMBEDDING_MODEL)
     return [item.embedding for item in response.data]
 
