@@ -85,6 +85,9 @@ var computerName = length(rawComputerName) > 15 ? substring(rawComputerName, 0, 
 resource vm 'Microsoft.Compute/virtualMachines@2024-07-01' = {
   name: 'vm-${prefix}'
   location: location
+  identity: {
+    type: 'SystemAssigned'
+  }
   properties: {
     hardwareProfile: {
       vmSize: 'Standard_B2ms'
@@ -119,4 +122,5 @@ resource vm 'Microsoft.Compute/virtualMachines@2024-07-01' = {
 }
 
 output vmName string = vm.name
+output vmPrincipalId string = vm.identity.principalId
 output bastionName string = bastion.name

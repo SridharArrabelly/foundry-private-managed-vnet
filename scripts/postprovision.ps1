@@ -1,23 +1,42 @@
 #!/usr/bin/env pwsh
-# postprovision hook: install deps and run the AI Search index setup script.
-# azd exposes deployment outputs as environment variables in this process.
+# postprovision hook: invoke the indexer ON THE JUMPBOX VM via
+# `az vm run-command`, since Cloud Shell / local machines cannot reach the
+# private endpoints.
 
 $ErrorActionPreference = 'Stop'
 
-Write-Host "=== postprovision: indexing data/*.docx into AI Search ===" -ForegroundColor Cyan
+Write-Host "=== postprovision: running indexer on jumpbox via az vm run-command ===" -ForegroundColor Cyan
 
-if (-not $env:AI_SEARCH_ENDPOINT -or -not $env:AI_FOUNDRY_ENDPOINT) {
-    Write-Host "Skipping: AI_SEARCH_ENDPOINT or AI_FOUNDRY_ENDPOINT not set in azd env." -ForegroundColor Yellow
-    exit 0
+foreach ($v in 'AZURE_RESOURCE_GROUP','JUMPBOX_VM_NAME','AI_SEARCH_ENDPOINT','AI_FOUNDRY_ENDPOINT') {
+    if (-not (Get-Item env:$v -ErrorAction SilentlyContinue)) { throw "$v must be set by azd" }
 }
 
-$repoRoot = Split-Path -Parent $PSScriptRoot
-Push-Location $repoRoot
-try {
-    python -m pip install --quiet --upgrade pip
-    python -m pip install --quiet -r scripts/requirements.txt
-    python scripts/setup_aisearch_index.py
-}
-finally {
-    Pop-Location
-}
+$repoUrl    = (git config --get remote.origin.url).Trim()
+$repoBranch = if ($env:REPO_BRANCH) { $env:REPO_BRANCH } else { (git symbolic-ref --quiet --short HEAD) }
+if (-not $repoBranch) { $repoBranch = 'master' }
+$indexName  = if ($env:AI_SEARCH_INDEX_NAME) { $env:AI_SEARCH_INDEX_NAME } else { 'documents-index' }
+$embedModel = if ($env:EMBEDDING_MODEL) { $env:EMBEDDING_MODEL } else { 'text-embedding-3-large' }
+$embedDims  = if ($env:EMBEDDING_DIMENSIONS) { $env:EMBEDDING_DIMENSIONS } else { '3072' }
+
+Write-Host "  Repo:     $repoUrl @ $repoBranch"
+Write-Host "  VM:       $($env:JUMPBOX_VM_NAME) (rg: $($env:AZURE_RESOURCE_GROUP))"
+Write-Host "  Search:   $($env:AI_SEARCH_ENDPOINT)"
+Write-Host "  Foundry:  $($env:AI_FOUNDRY_ENDPOINT)"
+
+$scriptPath = Join-Path $PSScriptRoot 'jumpbox-bootstrap.ps1'
+
+Write-Host "==> Invoking jumpbox bootstrap (this can take 5-10 min on first run)..." -ForegroundColor Yellow
+az vm run-command invoke `
+    --resource-group $env:AZURE_RESOURCE_GROUP `
+    --name $env:JUMPBOX_VM_NAME `
+    --command-id RunPowerShellScript `
+    --scripts "@$scriptPath" `
+    --parameters `
+        "RepoUrl=$repoUrl" `
+        "RepoBranch=$repoBranch" `
+        "AiSearchEndpoint=$($env:AI_SEARCH_ENDPOINT)" `
+        "AiFoundryEndpoint=$($env:AI_FOUNDRY_ENDPOINT)" `
+        "AiSearchIndexName=$indexName" `
+        "EmbeddingModel=$embedModel" `
+        "EmbeddingDimensions=$embedDims" `
+    --output json

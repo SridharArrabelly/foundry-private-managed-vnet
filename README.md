@@ -83,9 +83,11 @@ azd up
 
 `azd up` will prompt for the Azure subscription, location, and the required `vmAdminPassword` (stored securely, not written to disk). All other values come from the azd environment.
 
-After provisioning succeeds, the `postprovision` hook installs the Python deps and runs `scripts/setup_aisearch_index.py` to create the search index and ingest any `data/*.docx` files. The hook is skipped automatically if the endpoint outputs aren't present.
+After provisioning succeeds, the `postprovision` hook runs `scripts/setup_aisearch_index.py` **on the jumpbox VM** via `az vm run-command`. The hook itself runs wherever you invoked `azd up` (your machine or Cloud Shell); it bootstraps Python on the VM, downloads this repo from GitHub, and runs the indexer using the VM's system-assigned managed identity (which has been granted Search + Foundry RBAC by the deployment).
 
-> ⚠️ The indexer talks to AI Search / Foundry over **private endpoints**. For the hook to succeed from your dev machine, set `ALLOWED_IP_ADDRESS` to your public IP before `azd up`. Without it, the indexing step will fail (services themselves still provision fine) and you must run the script from the jumpbox VM via Bastion.
+This works the same from Cloud Shell as from a local machine — `ALLOWED_IP_ADDRESS` does **not** need to be set, because all traffic to the private endpoints originates from the jumpbox (which is on the VNet).
+
+Assumption: this GitHub repo is public (so the jumpbox can download it via HTTPS without auth). If you fork to a private repo, replace the download step in `scripts/jumpbox-bootstrap.ps1` accordingly.
 
 Environment variables consumed by `infra/main.parameters.json`:
 

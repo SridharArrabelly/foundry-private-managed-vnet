@@ -48,13 +48,15 @@ module aiSearch 'modules/ai-search.bicep' = {
   }
 }
 
-// --- Role Assignments (Foundry system MI → Search) ---
+// --- Role Assignments (Foundry system MI → Search, Jumpbox MI → Search + Foundry) ---
 
 module roleAssignments 'modules/role-assignments.bicep' = {
   name: 'deploy-role-assignments'
   params: {
     aiFoundryPrincipalId: aiFoundry.outputs.aiFoundryPrincipalId
+    aiFoundryId: aiFoundry.outputs.aiFoundryId
     searchId: aiSearch.outputs.searchId
+    jumpboxPrincipalId: jumpbox.outputs.vmPrincipalId
   }
 }
 
