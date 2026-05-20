@@ -78,6 +78,10 @@ resource vmNic 'Microsoft.Network/networkInterfaces@2024-07-01' = {
 
 // --- Windows VM ---
 
+// Windows computer name must be <= 15 chars. Truncate 'vm<prefix>' if needed.
+var rawComputerName = 'vm${prefix}'
+var computerName = length(rawComputerName) > 15 ? substring(rawComputerName, 0, 15) : rawComputerName
+
 resource vm 'Microsoft.Compute/virtualMachines@2024-07-01' = {
   name: 'vm-${prefix}'
   location: location
@@ -86,7 +90,7 @@ resource vm 'Microsoft.Compute/virtualMachines@2024-07-01' = {
       vmSize: 'Standard_B2ms'
     }
     osProfile: {
-      computerName: 'vm${prefix}'
+      computerName: computerName
       adminUsername: adminUsername
       adminPassword: adminPassword
     }

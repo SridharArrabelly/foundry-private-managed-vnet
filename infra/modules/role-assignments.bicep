@@ -26,6 +26,10 @@ resource searchIndexDataContributor 'Microsoft.Authorization/roleAssignments@202
 resource searchServiceContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(searchId, aiFoundryPrincipalId, searchServiceContributorRoleId)
   scope: searchResource
+  // Serialize role assignments on the same scope to avoid IfMatchPreconditionFailed.
+  dependsOn: [
+    searchIndexDataContributor
+  ]
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', searchServiceContributorRoleId)
     principalId: aiFoundryPrincipalId
