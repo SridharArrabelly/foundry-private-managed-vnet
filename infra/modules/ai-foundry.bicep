@@ -54,7 +54,7 @@ resource embeddingDeployment 'Microsoft.CognitiveServices/accounts/deployments@2
   name: 'text-embedding-3-large'
   sku: {
     name: 'GlobalStandard'
-    capacity: 120
+    capacity: 30
   }
   properties: {
     model: {
@@ -84,4 +84,5 @@ resource gpt4MiniDeployment 'Microsoft.CognitiveServices/accounts/deployments@20
 
 output aiFoundryId string = aiFoundry.id
 output aiFoundryName string = aiFoundry.name
+output aiFoundryEndpoint string = 'https://${accountName}.cognitiveservices.azure.com'
 output aiFoundryPrincipalId string = aiFoundry.identity.principalId

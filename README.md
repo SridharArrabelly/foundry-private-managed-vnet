@@ -83,6 +83,10 @@ azd up
 
 `azd up` will prompt for the Azure subscription, location, and the required `vmAdminPassword` (stored securely, not written to disk). All other values come from the azd environment.
 
+After provisioning succeeds, the `postprovision` hook installs the Python deps and runs `scripts/setup_aisearch_index.py` to create the search index and ingest any `data/*.docx` files. The hook is skipped automatically if the endpoint outputs aren't present.
+
+> ⚠️ The indexer talks to AI Search / Foundry over **private endpoints**. For the hook to succeed from your dev machine, set `ALLOWED_IP_ADDRESS` to your public IP before `azd up`. Without it, the indexing step will fail (services themselves still provision fine) and you must run the script from the jumpbox VM via Bastion.
+
 Environment variables consumed by `infra/main.parameters.json`:
 
 | Variable | Required | Description |

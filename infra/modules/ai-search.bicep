@@ -41,3 +41,4 @@ resource aiSearch 'Microsoft.Search/searchServices@2025-05-01' = {
 
 output searchId string = aiSearch.id
 output searchName string = aiSearch.name
+output searchEndpoint string = 'https://${searchName}.search.windows.net'

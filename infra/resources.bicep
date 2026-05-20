@@ -90,6 +90,8 @@ module jumpbox 'modules/jumpbox.bicep' = {
 
 output vnetId string = network.outputs.vnetId
 output aiFoundryName string = aiFoundry.outputs.aiFoundryName
+output aiFoundryEndpoint string = aiFoundry.outputs.aiFoundryEndpoint
 output aiSearchName string = aiSearch.outputs.searchName
+output aiSearchEndpoint string = aiSearch.outputs.searchEndpoint
 output jumpboxVmName string = jumpbox.outputs.vmName
 output bastionName string = jumpbox.outputs.bastionName
