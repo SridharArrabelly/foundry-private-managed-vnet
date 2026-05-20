@@ -25,9 +25,47 @@ if (-not $pythonExe) {
     Write-Step "Installing Python 3.12 (silent)..."
     $installer = "$env:TEMP\python-installer.exe"
     Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.12.7/python-3.12.7-amd64.exe' -OutFile $installer -UseBasicParsing
-    Start-Process -FilePath $installer -ArgumentList '/quiet','InstallAllUsers=1','PrependPath=1','Include_pip=1' -Wait
-    $pythonExe = 'C:\Program Files\Python312\python.exe'
-    if (-not (Test-Path $pythonExe)) { throw "Python install failed." }
+
+    $targetDir = 'C:\Python312'
+    $logPath = "$env:TEMP\python-install.log"
+    $installArgs = @(
+        '/quiet',
+        '/log', $logPath,
+        'InstallAllUsers=1',
+        'PrependPath=1',
+        'Include_pip=1',
+        'Include_launcher=0',
+        "TargetDir=$targetDir"
+    )
+    $proc = Start-Process -FilePath $installer -ArgumentList $installArgs -Wait -PassThru
+    Write-Step "Python installer exit code: $($proc.ExitCode)"
+    if ($proc.ExitCode -ne 0) {
+        if (Test-Path $logPath) {
+            Write-Host '--- python-install.log (tail) ---'
+            Get-Content $logPath -Tail 60 | ForEach-Object { Write-Host $_ }
+        }
+        throw "Python installer failed with exit code $($proc.ExitCode)"
+    }
+
+    $pythonExe = Join-Path $targetDir 'python.exe'
+    if (-not (Test-Path $pythonExe)) {
+        # Fallback: scan common locations in case TargetDir was ignored.
+        $candidates = @(
+            'C:\Program Files\Python312\python.exe',
+            "$env:LocalAppData\Programs\Python\Python312\python.exe",
+            'C:\Python312\python.exe'
+        )
+        $found = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+        if ($found) {
+            $pythonExe = $found
+        } else {
+            if (Test-Path $logPath) {
+                Write-Host '--- python-install.log (tail) ---'
+                Get-Content $logPath -Tail 60 | ForEach-Object { Write-Host $_ }
+            }
+            throw "Python install reported success but python.exe not found in: $($candidates -join ', ')"
+        }
+    }
 }
 Write-Step "Python: $pythonExe"
 
