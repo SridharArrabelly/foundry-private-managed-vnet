@@ -19,8 +19,18 @@ $ProgressPreference = 'SilentlyContinue'
 function Write-Step($msg) { Write-Host "==> $msg" }
 
 # 1) Install Python silently if missing.
-$pyCmd = Get-Command python -ErrorAction SilentlyContinue
-$pythonExe = if ($pyCmd) { $pyCmd.Source } else { $null }
+# Check known install locations first; the current process's PATH won't reflect
+# an install done in a previous run-command session, so Get-Command can miss it.
+$knownPythons = @(
+    'C:\Python312\python.exe',
+    'C:\Program Files\Python312\python.exe',
+    "$env:LocalAppData\Programs\Python\Python312\python.exe"
+)
+$pythonExe = $knownPythons | Where-Object { Test-Path $_ } | Select-Object -First 1
+if (-not $pythonExe) {
+    $pyCmd = Get-Command python -ErrorAction SilentlyContinue
+    if ($pyCmd) { $pythonExe = $pyCmd.Source }
+}
 if (-not $pythonExe) {
     Write-Step "Installing Python 3.12 (silent)..."
     $installer = "$env:TEMP\python-installer.exe"
