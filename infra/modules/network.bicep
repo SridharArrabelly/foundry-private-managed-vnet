@@ -7,6 +7,39 @@ param prefix string
 var vnetName = 'vnet-${prefix}'
 var peSubnetName = 'snet-${prefix}-pe'
 
+// --- NAT Gateway for the VM subnet ---
+// Default outbound access for VMs is being retired by Azure, so VMs without an
+// explicit egress path lose internet access. Attach a NAT Gateway to the VM
+// subnet so the jumpbox can reach the internet (pip install, GitHub, etc.)
+// without exposing the VM via a public IP.
+
+resource natPip 'Microsoft.Network/publicIPAddresses@2024-07-01' = {
+  name: 'pip-${prefix}-natgw'
+  location: location
+  sku: {
+    name: 'Standard'
+  }
+  properties: {
+    publicIPAllocationMethod: 'Static'
+  }
+}
+
+resource natGateway 'Microsoft.Network/natGateways@2024-07-01' = {
+  name: 'natgw-${prefix}'
+  location: location
+  sku: {
+    name: 'Standard'
+  }
+  properties: {
+    idleTimeoutInMinutes: 10
+    publicIPAddresses: [
+      {
+        id: natPip.id
+      }
+    ]
+  }
+}
+
 resource vnet 'Microsoft.Network/virtualNetworks@2024-07-01' = {
   name: vnetName
   location: location
@@ -28,6 +61,9 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-07-01' = {
         name: 'snet-${prefix}-vm'
         properties: {
           addressPrefix: '10.0.2.0/24'
+          natGateway: {
+            id: natGateway.id
+          }
         }
       }
       {

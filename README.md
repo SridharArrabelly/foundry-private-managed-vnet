@@ -14,6 +14,8 @@ End-to-end private networking test for **Azure AI Foundry** and **Azure AI Searc
 │  │                  │  │                  │  │               │ │
 │  │ ● PE (Foundry)   │  │ ● Windows 11 VM  │  │ ● Bastion     │ │
 │  │ ● PE (AI Search) │  │   (jumpbox, MI)  │  │  (Standard)   │ │
+│  │                  │  │ ● NAT Gateway    │  │               │ │
+│  │                  │  │   (outbound)     │  │               │ │
 │  └──────────────────┘  └──────────────────┘  └───────────────┘ │
 │                                                                  │
 │  Private DNS Zones (linked to VNet):                            │
@@ -71,6 +73,7 @@ End-to-end private networking test for **Azure AI Foundry** and **Azure AI Searc
 | Private DNS Zone (Search) | `privatelink.search.windows.net` | DNS resolution for Search PE |
 | Windows 11 VM | `Microsoft.Compute/virtualMachines` (Standard_B2ms, System MI) | Jumpbox for testing private access and running the indexer |
 | Azure Bastion | `Microsoft.Network/bastionHosts` (Standard, tunneling enabled) | Secure RDP / native client tunneling to VM without public IP |
+| NAT Gateway | `Microsoft.Network/natGateways` (Standard) attached to VM subnet | Dedicated outbound internet for the jumpbox (Azure is retiring default outbound access) |
 
 ## Prerequisites
 
@@ -186,7 +189,7 @@ foundry-network-test/
     ├── main.parameters.json      # azd → bicep parameter bindings
     ├── resources.bicep           # Resource-group-scope orchestrator
     └── modules/
-        ├── network.bicep         # VNet + subnets (PE, VM, Bastion)
+        ├── network.bicep         # VNet + subnets (PE, VM, Bastion) + NAT Gateway for VM egress
         ├── ai-foundry.bicep      # AI Services + project + model deployments
         ├── ai-search.bicep       # AI Search (basic SKU)
         ├── role-assignments.bicep # RBAC: Foundry account MI + project MI + Jumpbox MI → Search/Foundry
@@ -210,7 +213,8 @@ foundry-network-test/
 | `Cognitive Services OpenAI User` 403 from the indexer | RBAC propagation can take 5–10 minutes; re-run `azd hooks run postprovision`. |
 | `Private network access required` in Foundry portal | Access from jumpbox VM via Bastion, or set `azd env set ALLOWED_IP_ADDRESS <your.ip>` and re-provision. |
 | DNS not resolving to private IP | Verify private DNS zones are linked to VNet: Portal → DNS Zone → Virtual network links. |
-| Bastion can't connect | `AzureBastionSubnet` must be /26; Bastion takes ~5 min to provision. |
+| Bastion can't connect | `AzureBastionSubnet` must be /26; Bastion takes ~5 min to provision. If the VM was auto-deallocated, `az vm start -g <rg> -n <vm>` first. |
+| Jumpbox has no internet access (pip / GitHub fails) | Azure is retiring "default outbound access" for VMs. The template attaches a NAT Gateway to the VM subnet to provide deterministic egress — `azd provision` to apply if you're on an older environment. |
 | Postprovision hook fails: "VM not found" | Check `azd env get-values` includes `JUMPBOX_VM_NAME` and `AZURE_RESOURCE_GROUP`. Re-run `azd provision` if missing. |
 | `az vm run-command` times out | The bootstrap takes up to 10 min on first run (Python install). Retry with `azd hooks run postprovision`. |
 | Hook prints "Indexer failed on jumpbox" with stderr | The bootstrap surfaces the VM-side error. Common causes: parser errors if you edit `jumpbox-bootstrap.ps1` with PowerShell 7+ syntax (the VM runs Windows PowerShell **5.1** — avoid `?.`, `??`, ternary, etc.); or transient RBAC propagation (re-run the hook after a few minutes). |
