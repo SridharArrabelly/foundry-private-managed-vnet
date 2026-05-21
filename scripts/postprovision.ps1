@@ -48,9 +48,15 @@ $stderr = ($rc.value | Where-Object { $_.code -like '*StdErr*' } | Select-Object
 Write-Host '--- jumpbox stdout ---'
 Write-Host $stdout
 if ($stderr -and $stderr.Trim()) {
-    Write-Host '--- jumpbox stderr ---' -ForegroundColor Red
-    Write-Host $stderr -ForegroundColor Red
-    throw "Indexer failed on jumpbox. See stderr above."
+    Write-Host '--- jumpbox stderr ---' -ForegroundColor Yellow
+    Write-Host $stderr -ForegroundColor Yellow
+}
+
+# pip and other tools emit warnings to stderr (e.g. "WARNING: The scripts pip.exe ... not on PATH"),
+# so non-empty stderr alone does not indicate failure. Treat the run as successful only if
+# jumpbox-bootstrap.ps1 printed its terminal success marker.
+if ($stdout -notmatch '==> Indexing complete\.') {
+    throw "Indexer failed on jumpbox: success marker '==> Indexing complete.' not found in stdout."
 }
 
 Write-Host "==> Indexer completed successfully on jumpbox." -ForegroundColor Green

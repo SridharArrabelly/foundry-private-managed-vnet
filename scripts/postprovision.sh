@@ -44,7 +44,7 @@ RC_OUTPUT="$(az vm run-command invoke \
 
 # Parse stdout / stderr emitted by the run-command extension on the VM.
 # az vm run-command exits 0 as long as the agent ran, even if the inner script failed,
-# so we inspect the StdErr block ourselves and exit non-zero if it has content.
+# so we have to inspect the output ourselves.
 STDOUT="$(echo "$RC_OUTPUT" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(next((v["message"] for v in d.get("value",[]) if "StdOut" in v.get("code","")), ""))')"
 STDERR="$(echo "$RC_OUTPUT" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(next((v["message"] for v in d.get("value",[]) if "StdErr" in v.get("code","")), ""))')"
 
@@ -53,7 +53,13 @@ echo "$STDOUT"
 if [[ -n "${STDERR// /}" ]]; then
     echo "--- jumpbox stderr ---" >&2
     echo "$STDERR" >&2
-    echo "Indexer failed on jumpbox. See stderr above." >&2
+fi
+
+# pip and other tools emit warnings to stderr (e.g. "WARNING: The scripts pip.exe ... not on PATH"),
+# so non-empty stderr alone does not indicate failure. Treat the run as successful only if
+# jumpbox-bootstrap.ps1 printed its terminal success marker.
+if ! echo "$STDOUT" | grep -q '==> Indexing complete\.'; then
+    echo "Indexer failed on jumpbox: success marker '==> Indexing complete.' not found in stdout." >&2
     exit 1
 fi
 
