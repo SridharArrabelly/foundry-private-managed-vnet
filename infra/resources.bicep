@@ -34,6 +34,9 @@ module aiFoundry 'modules/ai-foundry.bicep' = {
     location: location
     prefix: prefix
     allowedIpAddress: allowedIpAddress
+    searchName: aiSearch.outputs.searchName
+    searchId: aiSearch.outputs.searchId
+    searchLocation: location
   }
 }
 

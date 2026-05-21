@@ -7,9 +7,18 @@ param prefix string
 @description('Your public IP address to allow portal/API access (leave empty to block all public access)')
 param allowedIpAddress string = ''
 
+@description('Name of the AI Search service to wire as a project connection (for managed VNet outbound)')
+param searchName string
+
+@description('Resource ID of the AI Search service')
+param searchId string
+
+@description('Location of the AI Search service (used in connection metadata)')
+param searchLocation string
+
 var accountName = 'ais-${prefix}'
 
-resource aiFoundry 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
+resource aiFoundry 'Microsoft.CognitiveServices/accounts@2025-10-01-preview' = {
   name: accountName
   location: location
   kind: 'AIServices'
@@ -32,13 +41,54 @@ resource aiFoundry 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
         }
       ]
     }
+    // Managed VNet for the Foundry Agent runtime. Microsoft provisions and
+    // manages a virtual network behind the scenes; agent + evaluation traffic
+    // is isolated to this network. Outbound to private resources (e.g. our
+    // private AI Search) is configured via approved outbound rules created
+    // automatically when we add the Search connection on the project below.
+    networkInjections: [
+      {
+        scenario: 'agent'
+        subnetArmId: ''
+        useMicrosoftManagedNetwork: true
+      }
+    ]
+  }
+}
+
+// Managed-network settings on the account. AllowOnlyApprovedOutbound is the
+// strictest isolation mode: outbound traffic from the agent runtime is only
+// permitted to explicitly-approved targets (the project connections below).
+#disable-next-line BCP081
+resource aiFoundryManagedNetwork 'Microsoft.CognitiveServices/accounts/managednetworks@2025-10-01-preview' = {
+  parent: aiFoundry
+  name: 'default'
+  properties: {
+    managedNetwork: {
+      IsolationMode: 'AllowOnlyApprovedOutbound'
+      managedNetworkKind: 'V2'
+      provisionNetworkNow: true
+    }
+  }
+}
+
+// Allow the Foundry account MI to auto-approve managed private endpoints
+// created in its managed VNet (e.g. the outbound PE to our private AI Search).
+// Built-in role: 'Azure AI Enterprise Network Connection Approver'.
+resource networkConnectionApprover 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: resourceGroup()
+  name: guid(aiFoundry.id, 'b556d68e-0be0-4f35-a333-ad7ee1ce17ea', resourceGroup().id)
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b556d68e-0be0-4f35-a333-ad7ee1ce17ea')
+    principalId: aiFoundry.identity.principalId
+    principalType: 'ServicePrincipal'
   }
 }
 
 // --- Foundry Project ---
 // Serialize after deployments to avoid IfMatchPreconditionFailed races on the
 // parent account (both project and deployments are children of aiFoundry).
-resource foundryProject 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = {
+resource foundryProject 'Microsoft.CognitiveServices/accounts/projects@2025-10-01-preview' = {
   parent: aiFoundry
   name: '${prefix}-project'
   location: location
@@ -49,7 +99,27 @@ resource foundryProject 'Microsoft.CognitiveServices/accounts/projects@2025-06-0
   dependsOn: [
     embeddingDeployment
     gpt4MiniDeployment
+    aiFoundryManagedNetwork
   ]
+}
+
+// AI Search connection on the project. With AAD auth + managed VNet,
+// Foundry auto-creates an approved outbound rule (managed private endpoint)
+// from its managed VNet to the Search service so the agent runtime can
+// reach our private-only Search through a private link.
+resource projectSearchConnection 'Microsoft.CognitiveServices/accounts/projects/connections@2025-10-01-preview' = {
+  parent: foundryProject
+  name: searchName
+  properties: {
+    category: 'CognitiveSearch'
+    target: 'https://${searchName}.search.windows.net'
+    authType: 'AAD'
+    metadata: {
+      ApiType: 'Azure'
+      ResourceId: searchId
+      location: searchLocation
+    }
+  }
 }
 
 // --- Model Deployments (on the project) ---

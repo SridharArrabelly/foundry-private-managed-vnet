@@ -58,6 +58,9 @@ End-to-end private networking test for **Azure AI Foundry** and **Azure AI Searc
 | Bastion Subnet | AzureBastionSubnet (10.0.3.0/26) | Azure Bastion host |
 | AI Foundry | `Microsoft.CognitiveServices/accounts` (kind: AIServices) | AI Services with project management |
 | Foundry Project | `accounts/projects` | Foundry project for model management |
+| Foundry **Managed VNet** | `accounts/managednetworks/default` (`AllowOnlyApprovedOutbound`) | Microsoft-managed VNet for the Agent runtime — gives agents/evaluations a private network path to your private resources without you owning the VNet |
+| Foundry project connection → Search | `accounts/projects/connections` (CognitiveSearch, AAD) | Tells the agent runtime how to reach AI Search; auto-creates an approved managed private endpoint from the managed VNet to the Search service |
+| RBAC: Foundry account MI → Resource Group | Azure AI Enterprise Network Connection Approver | Lets the account auto-approve the managed PE created in its managed VNet |
 | text-embedding-3-large | Model deployment (GlobalStandard) | Embedding model for vectorizing documents (3072 dims) |
 | gpt-4.1-mini | Model deployment (GlobalStandard) | Chat/completion model |
 | AI Search | `Microsoft.Search/searchServices` (basic) | Search index for document chunks |
@@ -222,7 +225,7 @@ foundry-network-test/
 | `ModuleNotFoundError: No module named 'encodings'` on the jumpbox | Python's `sys.prefix` was derived from cwd instead of the install dir. The bootstrap sets `PYTHONHOME` to pin it. Pull latest. |
 | `UnicodeEncodeError: 'charmap' codec can't encode` on the jumpbox | Windows console defaults to cp1252. The bootstrap sets `PYTHONIOENCODING=utf-8` and `PYTHONUTF8=1`. Pull latest. |
 | Foundry portal (Agents page) on the jumpbox shows **"Public access is disabled. Please configure private endpoint."** | The Foundry Agents experience calls `*.openai.azure.com` and `*.services.ai.azure.com` in addition to `*.cognitiveservices.azure.com`. All three `privatelink.*` zones must be linked to the VNet and attached to the Foundry PE's DNS zone group (the template does this). If you see this on an environment provisioned before this fix, run `azd provision` to add the missing zones. |
-| Agent run with AI Search tool fails: **"Invalid endpoint or connection failed."** | The agent calls Search using the Foundry **project's** managed identity (visible as `Project Managed Identity` on the connection). That MI needs `Search Index Data Contributor` + `Search Service Contributor` on the search service. The template now grants these — `azd provision` to apply, then wait ~2–5 min for RBAC propagation before re-running the agent. |
+| Agent run with AI Search tool fails: **"Invalid endpoint or connection failed."** | Two requirements must both be met. **(1) RBAC:** the agent runs as the Foundry **project's** managed identity (visible as `Project Managed Identity` on the connection); it needs `Search Index Data Contributor` + `Search Service Contributor` on the search service. **(2) Network reachability:** the agent runtime runs in Microsoft-managed compute, *not* your VNet. The template enables Foundry **Managed VNet** (`useMicrosoftManagedNetwork: true`) and adds a project connection to AI Search so Foundry auto-creates an approved managed private endpoint from the managed VNet to your private Search. If you provisioned before these fixes, run `azd provision` to apply, then wait ~2–5 min for RBAC + managed PE provisioning before re-running the agent. |
 
 ## Cleanup
 
