@@ -59,7 +59,7 @@ End-to-end private networking test for **Azure AI Foundry** and **Azure AI Searc
 | AI Foundry | `Microsoft.CognitiveServices/accounts` (kind: AIServices) | AI Services with project management |
 | Foundry Project | `accounts/projects` | Foundry project for model management |
 | Foundry **Managed VNet** | `accounts/managednetworks/default` (`AllowOnlyApprovedOutbound`) | Microsoft-managed VNet for the Agent runtime — gives agents/evaluations a private network path to your private resources without you owning the VNet |
-| Foundry project connection → Search | `accounts/projects/connections` (CognitiveSearch, AAD) | Tells the agent runtime how to reach AI Search; auto-creates an approved managed private endpoint from the managed VNet to the Search service |
+| Foundry project connection → Search | `accounts/projects/connections` (CognitiveSearch, `authType: ProjectManagedIdentity`) | Tells the agent runtime how to reach AI Search; auto-creates an approved managed private endpoint from the managed VNet to the Search service. **MUST be `ProjectManagedIdentity` — `AAD` is passthrough auth and fails in the agent runtime context.** |
 | RBAC: Foundry account MI → Resource Group | Azure AI Enterprise Network Connection Approver | Lets the account auto-approve the managed PE created in its managed VNet |
 | text-embedding-3-large | Model deployment (GlobalStandard) | Embedding model for vectorizing documents (3072 dims) |
 | gpt-4.1-mini | Model deployment (GlobalStandard) | Chat/completion model |
@@ -232,18 +232,19 @@ How it's configured in this template (`infra/modules/ai-foundry.bicep`):
 
 1. **Account property** `networkInjections: [{ scenario: 'agent', useMicrosoftManagedNetwork: true }]` tells Foundry to host its agent runtime in a Microsoft-managed VNet.
 2. **Sub-resource** `accounts/managednetworks/default` with `IsolationMode: AllowOnlyApprovedOutbound` provisions that VNet and locks outbound to approved targets only.
-3. **Project connection** (`accounts/projects/connections`, category `CognitiveSearch`, authType `AAD`) targets the AI Search resource. Foundry sees that the target service supports private link and **auto-creates a managed private endpoint** from the managed VNet to the Search service.
+3. **Project connection** (`accounts/projects/connections`, category `CognitiveSearch`, **`authType: ProjectManagedIdentity`**) targets the AI Search resource. Foundry sees that the target service supports private link and **auto-creates a managed private endpoint** from the managed VNet to the Search service. *⚠️ `authType: AAD` is user-passthrough and fails in the agent runtime — must be `ProjectManagedIdentity`.*
 4. **Role assignment** — the Foundry account's MI gets `Azure AI Enterprise Network Connection Approver` on the resource group so it can auto-approve that managed PE.
 5. **Project MI RBAC** — the project's system-assigned MI gets `Search Index Data Contributor` + `Search Service Contributor` on the Search service (agent calls authenticate as the project MI, *not* the account MI).
 
-### Two requirements, both must be met
+### Three requirements, all must be met
 
 | Requirement | Without it | With it |
 |---|---|---|
+| **Connection auth** (`authType: ProjectManagedIdentity`) | "Invalid endpoint or connection failed" — runtime tries user passthrough, no token in context | Agent runtime authenticates as the project MI |
 | **RBAC** (project MI → Search data plane) | 403 Forbidden | Allowed |
 | **Network reachability** (managed VNet → private Search) | Connection refused / "Invalid endpoint" | Reachable via managed PE |
 
-If you provisioned an environment *before* commit `fb84950`, run `azd provision` (or the equivalent `az deployment group create`) to apply both. After deployment allow ~2–5 min for RBAC propagation and managed PE provisioning before re-running the agent.
+After `azd up` / `azd provision`, allow ~2–5 min for managed network provisioning, PE auto-approval, and RBAC propagation before re-running the agent.
 
 ## Troubleshooting
 
@@ -263,7 +264,7 @@ If you provisioned an environment *before* commit `fb84950`, run `azd provision`
 | `ModuleNotFoundError: No module named 'encodings'` on the jumpbox | Python's `sys.prefix` was derived from cwd instead of the install dir. The bootstrap sets `PYTHONHOME` to pin it. Pull latest. |
 | `UnicodeEncodeError: 'charmap' codec can't encode` on the jumpbox | Windows console defaults to cp1252. The bootstrap sets `PYTHONIOENCODING=utf-8` and `PYTHONUTF8=1`. Pull latest. |
 | Foundry portal (Agents page) on the jumpbox shows **"Public access is disabled. Please configure private endpoint."** | The Foundry Agents experience calls `*.openai.azure.com` and `*.services.ai.azure.com` in addition to `*.cognitiveservices.azure.com`. All three `privatelink.*` zones must be linked to the VNet and attached to the Foundry PE's DNS zone group (the template does this). If you see this on an environment provisioned before this fix, run `azd provision` to add the missing zones. |
-| Agent run with AI Search tool fails: **"Invalid endpoint or connection failed."** | Two requirements must both be met. **(1) RBAC:** the agent runs as the Foundry **project's** managed identity (visible as `Project Managed Identity` on the connection); it needs `Search Index Data Contributor` + `Search Service Contributor` on the search service. **(2) Network reachability:** the agent runtime runs in Microsoft-managed compute, *not* your VNet. The template enables Foundry **Managed VNet** (`useMicrosoftManagedNetwork: true`) and adds a project connection to AI Search so Foundry auto-creates an approved managed private endpoint from the managed VNet to your private Search. If you provisioned before these fixes, run `azd provision` to apply, then wait ~2–5 min for RBAC + managed PE provisioning before re-running the agent. |
+| Agent run with AI Search tool fails: **"Invalid endpoint or connection failed."** | Three requirements must all be met. **(1) Connection auth:** the project's Search connection MUST have `authType: ProjectManagedIdentity`. The default `AAD` is *user-passthrough* and has no token in the agent runtime context — the bicep sets this correctly; if you see "Microsoft Entra ID" (without "Project Managed Identity") in the portal, edit the connection's authentication. **(2) RBAC:** the project's MI needs `Search Index Data Contributor` + `Search Service Contributor` on the search service. **(3) Network reachability:** Managed VNet (`useMicrosoftManagedNetwork: true`) + auto-created managed private endpoint to Search. After `azd provision`, allow ~2–5 min for RBAC + managed PE provisioning before re-running the agent. |
 
 ## Cleanup
 

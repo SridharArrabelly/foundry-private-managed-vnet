@@ -103,17 +103,23 @@ resource foundryProject 'Microsoft.CognitiveServices/accounts/projects@2025-10-0
   ]
 }
 
-// AI Search connection on the project. With AAD auth + managed VNet,
-// Foundry auto-creates an approved outbound rule (managed private endpoint)
-// from its managed VNet to the Search service so the agent runtime can
-// reach our private-only Search through a private link.
+// AI Search connection on the project. With ProjectManagedIdentity auth +
+// managed VNet, Foundry auto-creates an approved outbound rule (managed
+// private endpoint) from its managed VNet to the Search service so the
+// agent runtime can reach our private-only Search through a private link,
+// authenticating as the project's system-assigned managed identity.
+//
+// IMPORTANT: authType MUST be 'ProjectManagedIdentity'. The default 'AAD'
+// is *user-passthrough* auth, which has no token in the agent runtime
+// context and fails with "Invalid endpoint or connection failed".
 resource projectSearchConnection 'Microsoft.CognitiveServices/accounts/projects/connections@2025-10-01-preview' = {
   parent: foundryProject
   name: searchName
   properties: {
     category: 'CognitiveSearch'
     target: 'https://${searchName}.search.windows.net'
-    authType: 'AAD'
+    authType: 'ProjectManagedIdentity'
+    isDefault: true
     metadata: {
       ApiType: 'Azure'
       ResourceId: searchId
