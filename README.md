@@ -360,6 +360,8 @@ Do **not** modify the Foundry-owned trio. If you do, you may see broken thread s
    an agent that has AI Search as a tool.
 ```
 
+> 💡 **`setup_aisearch_index.py` is a demonstration, not a runtime requirement.** It exists only to prove the end-to-end private path works — agent runtime → Foundry-managed PE → AI Search → results — by creating a `documents-index` populated from the sample `.docx` files in `data/`. The Standard Agent / Foundry runtime itself does **not** need this script or this index. Foundry creates its own indexes on demand (e.g. `vs_*`, `chunks_*` when the **File Search** tool is used). The `documents-index` is here so that, on day one, you can attach the **AI Search** tool to an agent and prove queries flow through private networking. See [Adapting the indexer for your data](#adapting-the-indexer-for-your-data) below.
+
 ### Runtime data flow (after deploy)
 
 ```
@@ -490,6 +492,18 @@ pwsh C:\Path\To\jumpbox-bootstrap.ps1 `
   -AiFoundryEndpoint https://ais-<prefix>.cognitiveservices.azure.com
 ```
 
+### Adapting the indexer for your data
+
+`scripts/setup_aisearch_index.py` is a sample. Reuse it three ways depending on your goal:
+
+| Goal | What to do |
+|---|---|
+| **Just smoke-test the private path** *(default)* | Leave everything alone — the included `.docx` in `data/` and `documents-index` exist for this. |
+| **Index your own documents in the same Search service** | Drop your `.docx` files into `data/`, push to your fork, then re-run `azd hooks run postprovision` (or call the script directly). Change the `INDEX_NAME` constant at the top of `setup_aisearch_index.py` if `documents-index` doesn't fit your domain. |
+| **Production: use a separate Search service for your data** | Per the [⚠️ Foundry-dedicated callout](#%EF%B8%8F-these-three-resources-are-dedicated-to-foundry--provision-separate-ones-for-your-app-data), provision a second AI Search instance for your business knowledge base. Override the `AZURE_SEARCH_ENDPOINT` env var (or hard-code in the script) to point at it before re-running. Foundry's `srch-<prefix>` stays clean for whatever it auto-creates. |
+
+The script is plain Python using `DefaultAzureCredential` — feel free to fork it, swap chunkers, switch from `text-embedding-3-large` to another deployment, or replace `.docx` parsing with PDF/HTML/etc. Nothing in the infrastructure depends on its exact shape.
+
 ## Project Structure
 
 ```
@@ -593,7 +607,7 @@ This is how Foundry is architected. The agent runtime is a Microsoft-managed ser
 They serve different traffic. **Your** PEs let you (and your jumpbox, and your future apps) reach the resources from inside your VNet. **Foundry's managed PEs** let the agent runtime in Microsoft's hidden VNet reach the same resources. The two VNets aren't peered and can't be — managed PEs are the only supported bridge.
 
 ### Can I share my own Cosmos / Storage / Search with this Foundry agent?
-- **AI Search: yes.** Foundry creates its own indexes (`vs_*`, `chunks_*` when File Search is used), but you can create your own indexes alongside them. The agent's AI Search tool queries whichever index name you tell it. The template's `documents-index` is exactly this — your own index sharing the same Search service.
+- **AI Search: yes.** Foundry creates its own indexes (`vs_*`, `chunks_*` when File Search is used), but you can create your own indexes alongside them. The agent's AI Search tool queries whichever index name you tell it. The template's `documents-index` is created by `scripts/setup_aisearch_index.py` purely as a demonstration of the private path — it is *not* required by Foundry. See [Adapting the indexer for your data](#adapting-the-indexer-for-your-data) for how to point the script at your own files or a separate Search service.
 - **Cosmos: technically yes, practically no.** Foundry treats the account as its private datastore — creates its own databases, may adjust account-level settings. Microsoft docs say "dedicated". Provision a separate Cosmos account for your app data.
 - **Storage: technically yes, practically no.** Same reasoning. Foundry creates its own containers per project (with the `*-azureml-agent` suffix that the ABAC condition is scoped to). Provision a separate Storage account for your app blobs.
 
