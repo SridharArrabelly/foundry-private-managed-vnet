@@ -90,7 +90,7 @@ $env:PYTHONUTF8 = '1'
 Write-Step "PYTHONHOME=$pythonHome"
 
 # 2) Download repo archive.
-$workDir = "$env:TEMP\foundry-network-test"
+$workDir = "$env:TEMP\foundry-private-managed-vnet"
 if (Test-Path $workDir) { Remove-Item -Recurse -Force $workDir }
 New-Item -ItemType Directory -Path $workDir | Out-Null
 

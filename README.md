@@ -1,6 +1,15 @@
-# Foundry Network Test
+# Foundry Private Networking — Managed VNet flavor
 
-End-to-end private-networking reference for **Azure AI Foundry Agents** that uses the Microsoft-supported **Standard Agent + Managed VNet** pattern: BYO Cosmos DB + Storage + AI Search wired to the agent runtime via a project `capabilityHost`, with `publicNetworkAccess: Disabled` on every data resource and **zero public network exposure**. Designed as a working baseline you can lift into production, and as a way to validate a client's network configuration before a support call.
+End-to-end private-networking reference for **Azure AI Foundry Agents** using the **Managed VNet + Standard Agent** pattern: BYO Cosmos DB + Storage + AI Search wired to the agent runtime via a project `capabilityHost`, with `publicNetworkAccess: Disabled` on every data resource and **zero public network exposure**. Designed as a working baseline you can lift into production, and as a way to validate a client's network configuration before a support call.
+
+> **Two flavors of private Foundry — pick the one you need:**
+>
+> | Flavor | Repo | When to use |
+> |---|---|---|
+> | **Managed VNet** *(this repo)* | [foundry-private-managed-vnet](https://github.com/SridharArrabelly/foundry-private-managed-vnet) | Default. Agent compute runs in a Microsoft-managed VNet you don't see. Simpler — no subnet-IP planning. Sample 18 pattern. |
+> | **BYO VNet (delegated subnet)** | [foundry-private-byo-vnet](https://github.com/SridharArrabelly/foundry-private-byo-vnet) | For highly regulated workloads (banks/gov/health) that require agent compute IPs to live in the customer's own VNet. Hosted + Prompt agent types via a Data Proxy. |
+>
+> See the [decision hub](https://github.com/SridharArrabelly/foundry-private-networking-samples) for a side-by-side comparison and a "which one should I use?" walkthrough. **Both are fully supported by Microsoft going forward** — neither is being deprecated.
 
 > **TL;DR — what this template proves:**
 > A Foundry agent can call the AI Search tool, write thread state to Cosmos, and upload files to Storage, with **all four data resources locked to private endpoints only** — no public IPs, no service-tag exemptions, no firewall holes. The non-obvious piece that makes it work is the project `capabilityHost`, which binds the three BYO resources to the agent runtime and triggers Foundry to auto-create managed private endpoints from its hidden VNet into yours. Everything else (RBAC ordering, DNS zones, dual PEs, etc.) flows from that one design decision.
@@ -499,7 +508,7 @@ To run the indexer interactively *on the jumpbox* (e.g. for debugging), connect 
 ```powershell
 # the bootstrap script is the same one the hook invokes
 pwsh C:\Path\To\jumpbox-bootstrap.ps1 `
-  -RepoUrl https://github.com/SridharArrabelly/foundry-network-test.git `
+  -RepoUrl https://github.com/SridharArrabelly/foundry-private-managed-vnet.git `
   -RepoBranch master `
   -AiSearchEndpoint  https://srch-<prefix>.search.windows.net `
   -AiFoundryEndpoint https://ais-<prefix>.cognitiveservices.azure.com
@@ -520,7 +529,7 @@ The script is plain Python using `DefaultAzureCredential` — feel free to fork 
 ## Project Structure
 
 ```
-foundry-network-test/
+foundry-private-managed-vnet/
 ├── .azure/                       # azd environment state (git-ignored)
 ├── .gitignore
 ├── azure.yaml                    # azd project + postprovision hook wiring
