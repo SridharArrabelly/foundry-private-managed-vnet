@@ -13,7 +13,7 @@ End-to-end private-networking reference for **Azure AI Foundry Agents** that use
 - Handles the **two-phase RBAC chain** that Foundry requires (pre-caphost roles → capabilityHost provisioning → post-caphost roles with the ABAC condition on `*-azureml-agent`).
 - Provisions a **Windows jumpbox + Azure Bastion** so you can reach the private Foundry portal without VPN/peering.
 - Includes a sample indexer (`scripts/setup_aisearch_index.py`) that runs automatically on the jumpbox after deploy — proves the end-to-end private path works on day one (agent → managed PE → AI Search → results).
-- README has a detailed [Understanding the design](#understanding-the-design-why-is-this-so-complex) section covering *why* every piece exists: the managed-VNet model, why all three BYO resources are mandatory, why two RBAC phases, why both customer and managed PEs, etc. Worth reading top-to-bottom before the troubleshooting starts.
+- A detailed [Understanding the design](#understanding-the-design-why-is-this-so-complex) section covering *why* every piece exists: the managed-VNet model, why all three BYO resources are mandatory, why two RBAC phases, why both customer and managed PEs, etc. Worth reading top-to-bottom before the troubleshooting starts.
 - Region-tested in **swedencentral**. Includes notes on the eastus/eastus2 capacity gotchas, the `RoleAssignmentExists` trap, the `CustomDomainInUse` soft-delete trap, and the `azd down` SDK bug workaround.
 
 **Use it as a known-good reference** to compare against a broken deployment, or as a clean starting point to A/B test specific Bicep modules against a client's setup.
