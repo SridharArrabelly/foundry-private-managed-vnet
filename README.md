@@ -5,6 +5,19 @@ End-to-end private-networking reference for **Azure AI Foundry Agents** that use
 > **TL;DR — what this template proves:**
 > A Foundry agent can call the AI Search tool, write thread state to Cosmos, and upload files to Storage, with **all four data resources locked to private endpoints only** — no public IPs, no service-tag exemptions, no firewall holes. The non-obvious piece that makes it work is the project `capabilityHost`, which binds the three BYO resources to the agent runtime and triggers Foundry to auto-create managed private endpoints from its hidden VNet into yours. Everything else (RBAC ordering, DNS zones, dual PEs, etc.) flows from that one design decision.
 
+## What this repo does (at a glance)
+
+- Deploys an **Azure AI Foundry Standard Agent** end-to-end with **fully private networking** — zero public exposure on Foundry, AI Search, Cosmos DB, or Storage.
+- One-command deploy via `azd up` (Bicep + post-provision hooks). One-command teardown via `azd down`.
+- Provisions the complete **capabilityHost** topology: BYO Cosmos (thread state) + Storage (file/agent dirs) + AI Search (vector store), each behind its own private endpoint, with both customer PEs **and** Foundry-managed PEs wired up correctly.
+- Handles the **two-phase RBAC chain** that Foundry requires (pre-caphost roles → capabilityHost provisioning → post-caphost roles with the ABAC condition on `*-azureml-agent`).
+- Provisions a **Windows jumpbox + Azure Bastion** so you can reach the private Foundry portal without VPN/peering.
+- Includes a sample indexer (`scripts/setup_aisearch_index.py`) that runs automatically on the jumpbox after deploy — proves the end-to-end private path works on day one (agent → managed PE → AI Search → results).
+- README has a detailed [Understanding the design](#understanding-the-design-why-is-this-so-complex) section covering *why* every piece exists: the managed-VNet model, why all three BYO resources are mandatory, why two RBAC phases, why both customer and managed PEs, etc. Worth reading top-to-bottom before the troubleshooting starts.
+- Region-tested in **swedencentral**. Includes notes on the eastus/eastus2 capacity gotchas, the `RoleAssignmentExists` trap, the `CustomDomainInUse` soft-delete trap, and the `azd down` SDK bug workaround.
+
+**Use it as a known-good reference** to compare against a broken deployment, or as a clean starting point to A/B test specific Bicep modules against a client's setup.
+
 ## Architecture
 
 ```
