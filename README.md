@@ -14,6 +14,9 @@ End-to-end private-networking reference for **Azure AI Foundry Agents** using th
 > **TL;DR — what this template proves:**
 > A Foundry agent can call the AI Search tool, write thread state to Cosmos, and upload files to Storage, with **all four data resources locked to private endpoints only** — no public IPs, no service-tag exemptions, no firewall holes. The non-obvious piece that makes it work is the project `capabilityHost`, which binds the three BYO resources to the agent runtime and triggers Foundry to auto-create managed private endpoints from its hidden VNet into yours. Everything else (RBAC ordering, DNS zones, dual PEs, etc.) flows from that one design decision.
 
+> 📖 **Terminology note — "Standard Agent" vs Hosted/Prompt:**
+> "Standard Agent" (or "Standard Setup") is a **project-level setup mode**, not an agent type. It means the project brings its own Cosmos + Storage + AI Search (as opposed to "Basic Setup", where Microsoft hosts those behind the scenes on public endpoints). The phrase comes from Microsoft sample 18 (`standard-agent`), which predates the newer Hosted/Prompt agent-type taxonomy. **Hosted agents** (your container image) and **Prompt agents** (MS-managed compute) are *agent types* that run inside a Standard Setup project. This template builds the Standard Setup foundation — both Hosted and Prompt agent types are supported on top of it.
+
 ## What this repo does (at a glance)
 
 - Deploys an **Azure AI Foundry Standard Agent** end-to-end with **fully private networking** — zero public exposure on Foundry, AI Search, Cosmos DB, or Storage.
