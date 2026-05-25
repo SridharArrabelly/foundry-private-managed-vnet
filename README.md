@@ -1,6 +1,6 @@
 # Foundry Private Networking — Managed VNet flavor
 
-End-to-end private-networking reference for **Azure AI Foundry Agents** using the **Managed VNet + Standard Agent** pattern: BYO Cosmos DB + Storage + AI Search wired to the agent runtime via a project `capabilityHost`, with `publicNetworkAccess: Disabled` on every data resource and **zero public network exposure**. Designed as a working baseline you can lift into production, and as a way to validate a client's network configuration before a support call.
+End-to-end private-networking reference for **Azure AI Foundry Agents** (Hosted + Prompt) using the **Managed VNet** pattern: BYO Cosmos DB + Storage + AI Search wired to the agent runtime via a project `capabilityHost`, with `publicNetworkAccess: Disabled` on every data resource and **zero public network exposure**. Designed as a working baseline you can lift into production, and as a way to validate a client's network configuration before a support call.
 
 > **Two flavors of private Foundry — pick the one you need:**
 >
@@ -14,12 +14,9 @@ End-to-end private-networking reference for **Azure AI Foundry Agents** using th
 > **TL;DR — what this template proves:**
 > A Foundry agent can call the AI Search tool, write thread state to Cosmos, and upload files to Storage, with **all four data resources locked to private endpoints only** — no public IPs, no service-tag exemptions, no firewall holes. The non-obvious piece that makes it work is the project `capabilityHost`, which binds the three BYO resources to the agent runtime and triggers Foundry to auto-create managed private endpoints from its hidden VNet into yours. Everything else (RBAC ordering, DNS zones, dual PEs, etc.) flows from that one design decision.
 
-> 📖 **Terminology note — "Standard Agent" vs Hosted/Prompt:**
-> "Standard Agent" (or "Standard Setup") is a **project-level setup mode**, not an agent type. It means the project brings its own Cosmos + Storage + AI Search (as opposed to "Basic Setup", where Microsoft hosts those behind the scenes on public endpoints). The phrase comes from Microsoft sample 18 (`standard-agent`), which predates the newer Hosted/Prompt agent-type taxonomy. **Hosted agents** (your container image) and **Prompt agents** (MS-managed compute) are *agent types* that run inside a Standard Setup project. This template builds the Standard Setup foundation — both Hosted and Prompt agent types are supported on top of it.
-
 ## What this repo does (at a glance)
 
-- Deploys an **Azure AI Foundry Standard Agent** end-to-end with **fully private networking** — zero public exposure on Foundry, AI Search, Cosmos DB, or Storage.
+- Deploys **Azure AI Foundry Agents** (Hosted + Prompt) end-to-end with **fully private networking** — zero public exposure on Foundry, AI Search, Cosmos DB, or Storage.
 - One-command deploy via `azd up` (Bicep + post-provision hooks). One-command teardown via `azd down`.
 - Provisions the complete **capabilityHost** topology: BYO Cosmos (thread state) + Storage (file/agent dirs) + AI Search (vector store), each behind its own private endpoint, with both customer PEs **and** Foundry-managed PEs wired up correctly.
 - Handles the **two-phase RBAC chain** that Foundry requires (pre-caphost roles → capabilityHost provisioning → post-caphost roles with the ABAC condition on `*-azureml-agent`).
@@ -123,19 +120,19 @@ This means the moment you set `publicNetworkAccess: Disabled` on AI Search (or C
 
 You'll see this exact failure mode if you skip the rest of this template: agent runs return *"Invalid endpoint or connection failed"* even though everything looks healthy in the portal.
 
-### The Microsoft-sanctioned solution: Standard Agent
-Microsoft provides exactly two supported configurations for production-grade agents:
+### The Microsoft-sanctioned solution: BYO Cosmos + Storage + AI Search
+Microsoft provides exactly two ways to configure the data layer behind Foundry Agents:
 
 | Mode | Cosmos | Storage | Search | Private networking |
 |---|---|---|---|---|
-| **Basic Agent** | MS-managed (hidden) | MS-managed (hidden) | MS-managed (hidden) | ❌ Search uses public endpoints |
-| **Standard Agent** | **You own** | **You own** | **You own** | ✅ Full PE on all three |
+| **Foundry default** (MS-hosted data) | MS-managed (hidden) | MS-managed (hidden) | MS-managed (hidden) | ❌ Search uses public endpoints |
+| **BYO data layer** *(this template)* | **You own** | **You own** | **You own** | ✅ Full PE on all three |
 
 To get private networking on Search, you have to take ownership of the **whole triple** (Cosmos, Storage, Search) because Foundry's agent runtime architecturally requires all three — Cosmos for thread/message state, Storage for file uploads, Search for vector stores and RAG.
 
-Standard Agent is what this template builds.
+The BYO data layer is what this template builds. It's the foundation that **both Hosted and Prompt agent types** run on.
 
-### How Standard Agent gets connected
+### How the BYO data layer gets connected to the agent runtime
 Owning the three resources isn't enough; Foundry has to know to use *yours* instead of the hidden managed ones. That linkage is a resource called `capabilityHost`:
 
 ```
@@ -202,7 +199,7 @@ If you compare this template against the [networking deep-dive doc](https://lear
 
 | Layer | Purpose | What sits here | Required? |
 |---|---|---|---|
-| **1. Foundry runtime infrastructure** *(this template)* | Internal data layer the Agent Service itself uses — thread state, agent files, vector stores | **Cosmos + Storage + AI Search** (the Standard Setup trio) | ✅ Mandatory. `capabilityHost` won't bind without all three. |
+| **1. Foundry runtime infrastructure** *(this template)* | Internal data layer the Agent Service itself uses — thread state, agent files, vector stores | **Cosmos + Storage + AI Search** (the BYO data trio) | ✅ Mandatory. `capabilityHost` won't bind without all three. |
 | **2. Your tool-server backends** *(not in this template)* | Downstream resources **your agent's tools** call to do business logic | Whatever your tools need — SQL DB, Key Vault, your own Storage, Postgres, private APIs, etc. | Optional. Add as needed. |
 
 The deep-dive uses Storage/SQL DB/Key Vault as common PaaS-with-PE examples; it's purely about Layer 2 traffic flow (Data Proxy → outbound → customer resources) and assumes Layer 1 is already configured. This template builds Layer 1. To add Layer 2 resources, provision them in `infra/resources.bicep`, add a PE into `snet-<prefix>-pe`, link the matching `privatelink.*` zone (most are already linked here), and grant your tool's identity the appropriate RBAC.
@@ -247,8 +244,8 @@ Do **not** modify the Foundry-owned trio. If you do, you may see broken thread s
 | text-embedding-3-large | Model deployment (GlobalStandard) | Embedding model for vectorizing documents (3072 dims) |
 | gpt-4.1-mini | Model deployment (GlobalStandard) | Chat/completion model |
 | AI Search | `Microsoft.Search/searchServices` (basic) | Search index for document chunks |
-| Cosmos DB | `Microsoft.DocumentDB/databaseAccounts` (NoSQL, local auth disabled) | Agent thread storage (required by Standard Agent capabilityHost) |
-| Storage Account | `Microsoft.Storage/storageAccounts` (StorageV2, shared key disabled) | Agent file storage (required by Standard Agent capabilityHost) |
+| Cosmos DB | `Microsoft.DocumentDB/databaseAccounts` (NoSQL, local auth disabled) | Agent thread storage (required by the capabilityHost for Hosted/Prompt agents) |
+| Storage Account | `Microsoft.Storage/storageAccounts` (StorageV2, shared key disabled) | Agent file storage (required by the capabilityHost for Hosted/Prompt agents) |
 | RBAC: Foundry account MI → Search | Search Index Data Contributor + Search Service Contributor | Auto-set up by capabilityHost / for account-level operations |
 | RBAC: Foundry **project** MI → Search | Search Index Data Contributor + Search Service Contributor | Pre-caphost: lets the agent runtime use AI Search tool |
 | RBAC: Foundry **project** MI → Cosmos | Cosmos DB Operator (pre-caphost) + Cosmos SQL Data Contributor (post-caphost) | Required by capabilityHost provisioning + agent thread access |
@@ -396,7 +393,7 @@ Do **not** modify the Foundry-owned trio. If you do, you may see broken thread s
    an agent that has AI Search as a tool.
 ```
 
-> 💡 **`setup_aisearch_index.py` is a demonstration, not a runtime requirement.** It exists only to prove the end-to-end private path works — agent runtime → Foundry-managed PE → AI Search → results — by creating a `documents-index` populated from the sample `.docx` files in `data/`. The Standard Agent / Foundry runtime itself does **not** need this script or this index. Foundry creates its own indexes on demand (e.g. `vs_*`, `chunks_*` when the **File Search** tool is used). The `documents-index` is here so that, on day one, you can attach the **AI Search** tool to an agent and prove queries flow through private networking. See [Adapting the indexer for your data](#adapting-the-indexer-for-your-data) below.
+> 💡 **`setup_aisearch_index.py` is a demonstration, not a runtime requirement.** It exists only to prove the end-to-end private path works — agent runtime → Foundry-managed PE → AI Search → results — by creating a `documents-index` populated from the sample `.docx` files in `data/`. Hosted/Prompt agents and the Foundry runtime itself do **not** need this script or this index. Foundry creates its own indexes on demand (e.g. `vs_*`, `chunks_*` when the **File Search** tool is used). The `documents-index` is here so that, on day one, you can attach the **AI Search** tool to an agent and prove queries flow through private networking. See [Adapting the indexer for your data](#adapting-the-indexer-for-your-data) below.
 
 ### Runtime data flow (after deploy)
 
@@ -616,7 +613,7 @@ For a deeper architectural explanation of path 4 (which is the unusual one), see
 | `ModuleNotFoundError: No module named 'encodings'` on the jumpbox | Python's `sys.prefix` was derived from cwd instead of the install dir. The bootstrap sets `PYTHONHOME` to pin it. Pull latest. |
 | `UnicodeEncodeError: 'charmap' codec can't encode` on the jumpbox | Windows console defaults to cp1252. The bootstrap sets `PYTHONIOENCODING=utf-8` and `PYTHONUTF8=1`. Pull latest. |
 | Foundry portal (Agents page) on the jumpbox shows **"Public access is disabled. Please configure private endpoint."** | The Foundry Agents experience calls `*.openai.azure.com` and `*.services.ai.azure.com` in addition to `*.cognitiveservices.azure.com`. All three `privatelink.*` zones must be linked to the VNet and attached to the Foundry PE's DNS zone group (the template does this). If you see this on an environment provisioned before this fix, run `azd provision` to add the missing zones. |
-| Agent run with AI Search tool fails: **"Invalid endpoint or connection failed."** | This template now uses the Microsoft-supported **Standard Agent + Managed VNet** pattern: BYO Cosmos + Storage + Search, all three wired as project connections (`authType: AAD`), bound to the agent runtime via a project `capabilityHost`. If you see this error: (1) confirm the `capabilityHost` resource exists on your project (Portal → Foundry → Project → check via REST: `accounts/<acct>/projects/<proj>/capabilityHosts?api-version=2025-10-01-preview`); (2) confirm all 3 project connections show "Microsoft Entra ID" auth in the portal; (3) check the managed VNet outbound rules show 3 PrivateEndpoint rules (one each for Cosmos/Storage/Search) all `Active`. If any of those are missing or stuck, the cleanest fix is `azd down --purge --force` + `azd up` — Foundry has known issues with patching `capabilityHost` post-creation. |
+| Agent run with AI Search tool fails: **"Invalid endpoint or connection failed."** | This template uses the Microsoft-supported **Managed VNet + BYO data layer** pattern (the foundation for Hosted and Prompt agents): BYO Cosmos + Storage + Search, all three wired as project connections (`authType: AAD`), bound to the agent runtime via a project `capabilityHost`. If you see this error: (1) confirm the `capabilityHost` resource exists on your project (Portal → Foundry → Project → check via REST: `accounts/<acct>/projects/<proj>/capabilityHosts?api-version=2025-10-01-preview`); (2) confirm all 3 project connections show "Microsoft Entra ID" auth in the portal; (3) check the managed VNet outbound rules show 3 PrivateEndpoint rules (one each for Cosmos/Storage/Search) all `Active`. If any of those are missing or stuck, the cleanest fix is `azd down --purge --force` + `azd up` — Foundry has known issues with patching `capabilityHost` post-creation. |
 
 ## Cleanup
 
@@ -650,13 +647,13 @@ They serve different traffic. **Your** PEs let you (and your jumpbox, and your f
 For your app to query *separate* Cosmos/Storage from inside an agent, expose them as a Function tool or OpenAPI tool — connections of category `CosmosDB`/`AzureStorageAccount` are reserved for capabilityHost binding.
 
 ### Why `authType: AAD` on the connections and not `ProjectManagedIdentity`?
-The connection `authType` field controls what credential Foundry uses when *creating* the connection (for the initial reachability check). `ProjectManagedIdentity` makes Foundry use the project MI at creation time. `AAD` means "use the calling user's token" at creation time, but at **runtime** the capabilityHost overrides this and supplies the project MI token. Microsoft sample 18 — the source of truth for the Standard Agent pattern — uses `AAD`, and that's what works reliably. The earlier `ProjectManagedIdentity` attempt in this repo's history is a documented dead end.
+The connection `authType` field controls what credential Foundry uses when *creating* the connection (for the initial reachability check). `ProjectManagedIdentity` makes Foundry use the project MI at creation time. `AAD` means "use the calling user's token" at creation time, but at **runtime** the capabilityHost overrides this and supplies the project MI token. Microsoft sample 18 — the source of truth for the BYO-data-layer pattern — uses `AAD`, and that's what works reliably. The earlier `ProjectManagedIdentity` attempt in this repo's history is a documented dead end.
 
 ### What happens if I skip the capabilityHost?
 The project will still provision, the connections will still appear in the portal, RBAC will still be in place, and everything will look healthy. But the moment the agent runs and tries to use AI Search, it gets *"Invalid endpoint or connection failed"* with no other diagnostic. The connections are inert without capabilityHost — there's no token bridge from the runtime to your resources.
 
 ### What happens if I skip the BYO resources and just enable Managed VNet?
-That's the Basic Agent fallback. Foundry uses hidden Microsoft-managed Cosmos/Storage/Search, the agent runtime can reach them internally, and everything works — but **AI Search runs on a public endpoint** that you don't control. You also can't enforce private networking, region pinning, or audit logging on the hidden resources.
+That's the Foundry default — MS hosts hidden Cosmos/Storage/Search. The agent runtime can reach them internally, and everything works — but **AI Search runs on a public endpoint** that you don't control. You also can't enforce private networking, region pinning, or audit logging on the hidden resources.
 
 ### Why do you delete the foundry connection step twice in the Bicep (with `dependsOn`)?
 The three project connections share the same parent resource (`accounts/projects/connections`), and Azure's optimistic concurrency rejects parallel writes with `IfMatchPreconditionFailed`. Bicep tries to deploy children in parallel by default, so we manually chain them with `dependsOn`. The same trick is used for the four private endpoints on `snet-pe`.
@@ -670,7 +667,7 @@ The slow steps are:
 Subsequent `azd up` (re-runs) take ~2 min because Bicep is idempotent and most resources are no-op'd.
 
 ### Can I use this in production?
-The template is built from Microsoft's official sample 18 (`managed-virtual-network`) and follows their Standard Agent reference design. It should be a sound starting point. Before production, review and adjust:
+The template is built from Microsoft's official sample 18 (`managed-virtual-network`) and follows their BYO-data-layer reference design (the foundation for Hosted and Prompt agents). It should be a sound starting point. Before production, review and adjust:
 - Region selection (sample 18 was tested in `swedencentral`, `eastus2`, `westus3`; capacity in other regions varies)
 - Cosmos throughput (defaulted to autoscale, may need tuning)
 - Search SKU (`basic` here for cost; production probably wants `standard`)
@@ -679,4 +676,4 @@ The template is built from Microsoft's official sample 18 (`managed-virtual-netw
 - Lock down the jumpbox or remove it entirely once your CI/CD can hit the private endpoints directly
 
 ### Where can I find the source pattern this is based on?
-[microsoft-foundry/foundry-samples](https://github.com/microsoft-foundry/foundry-samples), specifically `samples/microsoft/infrastructure-setup-bicep/18-managed-virtual-network`. That sample is the Microsoft-authored reference for Standard Agent + Managed VNet and is what this template was rewritten against in May 2026 after several incorrect partial-private configurations failed at runtime.
+[microsoft-foundry/foundry-samples](https://github.com/microsoft-foundry/foundry-samples), specifically `samples/microsoft/infrastructure-setup-bicep/18-managed-virtual-network`. That sample is the Microsoft-authored reference for Managed VNet + BYO data layer (the foundation for Hosted/Prompt agents) and is what this template was rewritten against in May 2026 after several incorrect partial-private configurations failed at runtime.
