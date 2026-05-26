@@ -1,6 +1,6 @@
 # Foundry Private Networking — Managed VNet
 
-Deploy Azure AI Foundry Agents with private access to Foundry, Cosmos DB, Storage, and AI Search using the **Managed VNet + Standard Agent** pattern.
+Deploy Azure AI Foundry Agents with private access to Foundry, Cosmos DB, Storage, and AI Search using the **Managed VNet** pattern, where the agent runtime lives inside a Microsoft-managed network boundary.
 
 This is the recommended starting point for most private-networking scenarios.
 
@@ -29,7 +29,7 @@ This sample demonstrates that an Azure AI Foundry agent can:
 ## What this repo deploys
 
 - Azure AI Foundry account and project
-- Standard Agent pattern
+- Agent runtime inside a Microsoft-managed VNet
 - BYO Cosmos DB, Storage, and AI Search
 - `capabilityHost` binding between the project and the data layer
 - Private networking and the required RBAC chain
